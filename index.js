@@ -5,7 +5,10 @@ const fs = require("fs");
 const { execSync } = require("child_process");
 const { program } = require("commander");
 
-program.requiredOption("-ch, --challenge <string>");
+program.requiredOption(
+  "-ch, --challenge <string>",
+  "Challenge to parse, i.e. w1ch2"
+);
 
 program.parse();
 
@@ -15,24 +18,32 @@ const chalk = require("chalk");
 const { Client, Intents } = require("discord.js");
 
 const extractInfo = async (messageData) => {
-  const message = messageData.content.trim();
-  let {
-    nickname,
-    // eslint-disable-next-line prefer-const
-    user: { username },
-  } = await messageData.guild.members.fetch(messageData.author);
-  debug(chalk.cyanBright("Nickname: ", nickname || username));
-  nickname = nickname || username;
-  nickname = nickname
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replaceAll(" ", "-")
-    .toLowerCase();
+  try {
+    const message = messageData.content.trim();
+    let {
+      nickname,
+      // eslint-disable-next-line prefer-const
+      user: { username },
+    } = await messageData.guild.members.fetch({
+      user: messageData.author,
+      force: true,
+    });
+    debug(chalk.cyanBright("Nickname: ", nickname || username));
+    nickname = nickname || username;
+    nickname = nickname
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .replaceAll(" ", "-")
+      .toLowerCase();
 
-  return {
-    message,
-    nickname,
-  };
+    return {
+      message,
+      nickname,
+    };
+  } catch (error) {
+    debug(chalk.red("Error al intentar obtener la info del mensaje"));
+    throw error;
+  }
 };
 
 const cloneRepo = (repoURL, channel, category, nickname) => {
@@ -99,22 +110,34 @@ client.on("ready", async () => {
   );
   const messages = await challengeChannel.messages.fetch();
   messages.forEach(async (message) => {
-    // eslint-disable-next-line prefer-const
-    let { message: content, nickname } = await extractInfo(message);
-    const firstLineBreakPosition = content.indexOf("\n");
-    if (firstLineBreakPosition !== -1) {
-      content = content.substring(0, firstLineBreakPosition);
-    }
-    debug(chalk.green(`Parseando mensaje de ${nickname}: ${content}`));
-    if (
-      (content.startsWith("Repo:") ||
-        content.startsWith("Front - repo:") ||
-        content.startsWith("Back - repo:")) &&
-      content.includes("https://github.com")
-    ) {
-      const repoURLPosition = content.search("https://github.com");
-      const repoURL = content.slice(repoURLPosition);
-      cloneRepo(repoURL, channelName, categoryName, nickname);
+    try {
+      // eslint-disable-next-line prefer-const
+      let { message: content, nickname } = await extractInfo(message);
+      let firstLineBreakPosition = content.indexOf("\n");
+      if (firstLineBreakPosition !== -1) {
+        if (content.startsWith("Grupo:")) {
+          content = content.substring(firstLineBreakPosition + 1);
+          firstLineBreakPosition = content.indexOf("\n");
+        }
+        content = content.substring(0, firstLineBreakPosition);
+      }
+      debug(chalk.green(`Parseando mensaje de ${nickname}: ${content}`));
+      const lines = content.split("\n");
+      if (lines[0].startsWith("Grupo:")) {
+        content = lines.slice(1).join("\n");
+      }
+      if (
+        (content.startsWith("Repo:") ||
+          content.startsWith("Front - repo:") ||
+          content.startsWith("Back - repo:")) &&
+        content.includes("https://github.com")
+      ) {
+        const repoURLPosition = content.search("https://github.com");
+        const repoURL = content.slice(repoURLPosition);
+        cloneRepo(repoURL, channelName, categoryName, nickname);
+      }
+    } catch (error) {
+      debug(chalk.red(error.message));
     }
   });
 });
