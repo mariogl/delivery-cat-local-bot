@@ -35,7 +35,9 @@ const extractInfo = async (messageData) => {
       user: messageData.author,
       force: true,
     });
-    debug(chalk.cyanBright("Alumno: ", nickname || username));
+    debug(chalk.cyanBright("###############################"));
+    debug(chalk.cyanBright("   Alumno: ", nickname || username));
+    debug(chalk.cyanBright("###############################"));
     nickname = nickname || username;
     nickname = nickname
       .normalize("NFD")
@@ -53,7 +55,7 @@ const extractInfo = async (messageData) => {
   }
 };
 
-const cloneRepo = (repoURL, channel, category, nickname) => {
+const cloneRepo = (repoURL, channel, category, folderName) => {
   try {
     const folder = path.join(
       process.env.BOOTCAMP_PATH,
@@ -71,11 +73,11 @@ const cloneRepo = (repoURL, channel, category, nickname) => {
     }
 
     process.chdir(folder);
-    if (fs.existsSync(path.join(folder, nickname))) {
-      debug(chalk.yellow(`El repo ${nickname} ya existe localmente`));
+    if (fs.existsSync(path.join(folder, folderName))) {
+      debug(chalk.yellow(`El repo ${folderName} ya existe localmente`));
     } else {
       debug(chalk.yellow(`Clonando repo ${repoURL}`));
-      const stdoutGitClone = execSync(`git clone ${repoURL} ${nickname}`, {
+      const stdoutGitClone = execSync(`git clone ${repoURL} ${folderName}`, {
         encoding: "utf-8",
       });
 
@@ -88,8 +90,23 @@ const cloneRepo = (repoURL, channel, category, nickname) => {
   }
 };
 
+const lineIsRepo = (line) =>
+  line.toLowerCase().startsWith("repo:") ||
+  line.toLowerCase().replaceAll(" ", "").startsWith("front-repo:") ||
+  line.toLowerCase().replaceAll(" ", "").startsWith("back-repo:");
+
+const lineIsProd = (line) =>
+  line.toLowerCase().startsWith("prod:") ||
+  line.toLowerCase().replaceAll(" ", "").startsWith("front-prod:") ||
+  line.toLowerCase().replaceAll(" ", "").startsWith("back-prod:");
+
+const lineIsGroup = (line) => line.toLowerCase().startsWith("grupo:");
+
 module.exports = {
   extractWeekAndChallenge,
   extractInfo,
   cloneRepo,
+  lineIsRepo,
+  lineIsProd,
+  lineIsGroup,
 };

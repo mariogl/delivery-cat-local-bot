@@ -5,7 +5,14 @@ const { program } = require("commander");
 const { Client, Intents } = require("discord.js");
 const chalk = require("chalk");
 
-const { extractWeekAndChallenge, extractInfo, cloneRepo } = require("./utils");
+const {
+  extractWeekAndChallenge,
+  extractInfo,
+  cloneRepo,
+  lineIsRepo,
+  lineIsProd,
+  lineIsGroup,
+} = require("./utils");
 const classroomStudents = require("./students");
 const { default: axios } = require("axios");
 
@@ -28,6 +35,7 @@ client.on("ready", async () => {
   debug(chalk.yellow(`Logged in as ${client.user.tag}!`));
 
   const studentsDelivered = [];
+  const groupsStudents = [];
 
   const { categoryName, channelName, challengeCategory, challengeChannel } =
     extractWeekAndChallenge(client, challenge);
@@ -53,25 +61,28 @@ client.on("ready", async () => {
 
         const lines = content.split("\n");
         for (const line of lines) {
-          if (
-            line.toLowerCase().startsWith("repo:") ||
-            line.toLowerCase().replaceAll(" ", "").startsWith("front-repo:") ||
-            line.toLowerCase().replaceAll(" ", "").startsWith("back-repo:")
-          ) {
+          if (lineIsRepo(line)) {
             const repoURLPosition = line.search("https://github.com");
             const repoURL = line.slice(repoURLPosition);
-            cloneRepo(repoURL, channelName, categoryName, nickname);
-          } else if (
-            line.toLowerCase().startsWith("prod:") ||
-            line.toLowerCase().replaceAll(" ", "").startsWith("front-prod:") ||
-            line.toLowerCase().replaceAll(" ", "").startsWith("back-prod:")
-          ) {
+            let folderName = nickname;
+            if (groupsStudents.length > 0) {
+              const groupFound = groupsStudents.find((group) =>
+                group.includes(nickname)
+              );
+              if (groupFound) {
+                folderName = groupFound.join("-");
+              }
+            }
+            cloneRepo(repoURL, channelName, categoryName, folderName);
+          } else if (lineIsProd(line)) {
             const prodURLPosition = line.search("https://");
             const prodURL = line.slice(prodURLPosition);
+            debug(chalk.green("Comprobando URL de producción"));
             const response = await axios.get(prodURL);
             if (response.status === 404) {
               debug(chalk.red("La URL de producción da 404"));
             } else if (validator) {
+              debug(chalk.green("Comprobando HTML Validator"));
               const stdoutValidator = execSync(
                 `npx html-validator-cli ${prodURL}`,
                 {
@@ -79,6 +90,22 @@ client.on("ready", async () => {
                 }
               );
               debug(stdoutValidator);
+            }
+          } else if (lineIsGroup(line)) {
+            const group = line.toLowerCase().replace("grupo:", "").trim();
+            debug(chalk.cyanBright("Grupo: ", group));
+            const groupComponents = group.split(" - ").map((student) =>
+              student
+                .normalize("NFD")
+                .replace(/\p{Diacritic}/gu, "")
+                .replaceAll(" ", "-")
+                .toLowerCase()
+            );
+            groupsStudents.push(groupComponents);
+            for (const student of groupComponents) {
+              if (!studentsDelivered.includes(student)) {
+                studentsDelivered.push(student);
+              }
             }
           }
         }
