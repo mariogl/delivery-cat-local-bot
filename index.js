@@ -61,7 +61,7 @@ client.on("ready", async () => {
 
         const lines = content.split("\n");
         for (const line of lines) {
-          if (lineIsRepo(line)) {
+          if (lineIsRepo(line) && !validator) {
             const repoURLPosition = line.search("https://github.com");
             const repoURL = line.slice(repoURLPosition);
             let folderName = nickname;
@@ -83,13 +83,33 @@ client.on("ready", async () => {
               debug(chalk.red("La URL de producción da 404"));
             } else if (validator) {
               debug(chalk.green("Comprobando HTML Validator"));
-              const stdoutValidator = execSync(
-                `npx html-validator-cli ${prodURL}`,
-                {
-                  encoding: "utf-8",
-                }
+              const validatorURL = `https://validator.w3.org/nu/?doc=${prodURL}`;
+              const {
+                data: { messages },
+              } = await axios.get(`${validatorURL}&out=json`);
+              const errors = messages.filter(
+                (message) => message.type === "error"
               );
-              debug(stdoutValidator);
+              const warnings = messages.filter(
+                (message) => message.type === "info"
+              );
+              if (errors.length > 0) {
+                debug(
+                  chalk.red.bold(`${errors.length} errores al validar HTML`)
+                );
+              }
+              if (warnings.length > 0) {
+                debug(
+                  chalk.yellow.bold(
+                    `${warnings.length} warnings al validar HTML`
+                  )
+                );
+              }
+              if (errors.length === 0 && warnings.length === 0) {
+                debug(chalk.green.bold("OK"));
+              } else {
+                debug(chalk.red(validatorURL));
+              }
             }
           } else if (lineIsGroup(line)) {
             const group = line.toLowerCase().replace("grupo:", "").trim();
