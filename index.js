@@ -15,6 +15,8 @@ const {
 } = require("./utils");
 const classroomStudents = require("./students");
 const { default: axios } = require("axios");
+const connectDB = require("./db");
+const Challenge = require("./db/models/Challenge");
 
 program.requiredOption(
   "-ch, --challenge <string>",
@@ -32,6 +34,12 @@ const client = new Client({
 client.login(process.env.DISCORD_TOKEN);
 
 client.on("ready", async () => {
+  await connectDB(process.env.MONGODB_CONNECTION).catch((error) => {
+    debug(chalk.red(`Error al iniciar la base de datos: ${error.message}`));
+    throw new Error();
+  });
+  debug(chalk.blue("Base de datos iniciada"));
+
   debug(chalk.yellow(`Logged in as ${client.user.tag}!`));
 
   const studentsDelivered = [];
@@ -45,6 +53,26 @@ client.on("ready", async () => {
       `Localizada categoría ${challengeCategory.name} y canal ${challengeChannel.name}`
     )
   );
+
+  const nChallenge = +challengeChannel.name.replace("challenge-", "");
+  const nWeek = +challengeCategory.name.replace("Week ", "");
+
+  let challengeExists = await Challenge.findOne({
+    week: nWeek,
+    number: nChallenge,
+  });
+  const challengeName = `W${nWeek}CH${nChallenge}`;
+
+  if (!challengeExists) {
+    debug(
+      chalk.blueBright(`Creando challenge ${challengeName} en la base de datos`)
+    );
+    challengeExists = await Challenge.create({
+      name: challengeName,
+      week: nWeek,
+      number: nChallenge,
+    });
+  }
 
   const messages = await challengeChannel.messages.fetch();
 
