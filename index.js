@@ -14,7 +14,10 @@ const {
   lineIsGroup,
 } = require("./utils");
 const classroomStudents = require("./students");
-const { default: axios } = require("axios");
+const axios = require("axios");
+const connectDB = require("./db");
+const Challenge = require("./db/models/Challenge");
+const Project = require("./db/models/Project");
 
 program.requiredOption(
   "-ch, --challenge <string>",
@@ -32,6 +35,12 @@ const client = new Client({
 client.login(process.env.DISCORD_TOKEN);
 
 client.on("ready", async () => {
+  await connectDB(process.env.MONGODB_CONNECTION).catch((error) => {
+    debug(chalk.red(`Error al iniciar la base de datos: ${error.message}`));
+    throw new Error();
+  });
+  debug(chalk.blue("Base de datos iniciada"));
+
   debug(chalk.yellow(`Logged in as ${client.user.tag}!`));
 
   const studentsDelivered = [];
@@ -45,6 +54,27 @@ client.on("ready", async () => {
       `Localizada categoría ${challengeCategory.name} y canal ${challengeChannel.name}`
     )
   );
+
+  const nChallenge = +challengeChannel.name.replace("challenge-", "");
+  const nWeek = +challengeCategory.name.replace("Week ", "");
+
+  let challengeDB = await Challenge.findOne({
+    week: nWeek,
+    number: nChallenge,
+  });
+  const challengeName = `W${nWeek}CH${nChallenge}`;
+
+  if (!challengeDB) {
+    debug(
+      chalk.blueBright(`Creando challenge ${challengeName} en la base de datos`)
+    );
+    challengeDB = await Challenge.create({
+      name: challengeName,
+      week: nWeek,
+      number: nChallenge,
+    });
+    debug(chalk.greenBright(`Creado 👌`));
+  }
 
   const messages = await challengeChannel.messages.fetch();
 
@@ -60,11 +90,16 @@ client.on("ready", async () => {
         studentsDelivered.push(nickname);
 
         const lines = content.split("\n");
+        let folderName;
+        let repo = {
+          front: "",
+          back: "",
+        };
         for (const line of lines) {
           if (lineIsRepo(line) && !validator) {
             const repoURLPosition = line.search("https://github.com");
             const repoURL = line.slice(repoURLPosition);
-            let folderName = nickname;
+            folderName = nickname;
             if (groupsStudents.length > 0) {
               const groupFound = groupsStudents.find((group) =>
                 group.includes(nickname)
@@ -78,7 +113,9 @@ client.on("ready", async () => {
             const prodURLPosition = line.search("https://");
             const prodURL = line.slice(prodURLPosition);
             debug(chalk.green("Comprobando URL de producción"));
-            const response = await axios.get(prodURL);
+            const response = await axios.get(prodURL, {
+              validateStatus: false,
+            });
             if (response.status === 404) {
               debug(chalk.red("La URL de producción da 404"));
             } else if (validator) {
@@ -128,6 +165,31 @@ client.on("ready", async () => {
               }
             }
           }
+        }
+        let project = await Project.findOne({
+          challenge: challengeDB.id,
+          student: folderName,
+        });
+        if (!project) {
+          debug(
+            chalk.blueBright(
+              `Creando project ${folderName} en la base de datos`
+            )
+          );
+          debug(chalk.greenBright(`Creado 👌`));
+          const newProject = {
+            name: `${challengeName.toLowerCase()}-${folderName}`,
+            challenge: challengeDB.id,
+            student: folderName,
+            repo: {},
+          };
+          project = await Project.create(newProject);
+        } else {
+          debug(
+            chalk.blueBright(
+              `Ya existe el proyecto ${folderName} en la base de datos`
+            )
+          );
         }
       }
     } catch (error) {
