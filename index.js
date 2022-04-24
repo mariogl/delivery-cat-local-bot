@@ -98,6 +98,10 @@ client.on("ready", async () => {
           front: "",
           back: "",
         };
+        let prod = {
+          front: "",
+          back: "",
+        };
         for (const line of lines) {
           if (lineIsRepo(line) && !validator) {
             const repoURLPosition = line.search("https://github.com");
@@ -112,6 +116,7 @@ client.on("ready", async () => {
               }
             }
             cloneRepo(repoURL, channelName, categoryName, folderName);
+            repo.front = repoURL;
           } else if (lineIsProd(line)) {
             const prodURLPosition = line.search("https://");
             const prodURL = line.slice(prodURLPosition);
@@ -151,6 +156,7 @@ client.on("ready", async () => {
                 debug(chalk.red(validatorURL));
               }
             }
+            prod.front = prodURL;
           } else if (lineIsGroup(line)) {
             const group = line.toLowerCase().replace("grupo:", "").trim();
             debug(chalk.cyanBright("Grupo: ", group));
@@ -184,7 +190,11 @@ client.on("ready", async () => {
             name: `${challengeName.toLowerCase()}-${folderName}`,
             challenge: challengeDB.id,
             student: folderName,
-            repo: {},
+            repo: {
+              front: repo.front.replace(".git", ""),
+              back: repo.back.replace(".git", ""),
+            },
+            prod,
           };
           project = await Project.create(newProject);
         } else {
