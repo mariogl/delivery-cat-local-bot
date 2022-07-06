@@ -10,7 +10,7 @@ const classroomStudents = [
   "pau-sanchez",
   "lorena-martinez-moledo",
   "adrian-arco",
-  "berta-rosalia-floran",
+  "berta-floran",
   "manuela-perez-simon",
   "ivan-garcia",
   "adrian-armesto",
