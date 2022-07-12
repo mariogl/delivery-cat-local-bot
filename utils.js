@@ -14,7 +14,7 @@ const extractWeekAndChallenge = (client, challenge) => {
   const channelName = `challenge-${nChallenge}`;
 
   const challengeCategory = client.channels.cache.find(
-    (category) => category.name === categoryName
+    (category) => category.name.toLowerCase() === categoryName.toLowerCase()
   );
   const challengeChannel = client.channels.cache.find(
     (channel) =>
@@ -35,6 +35,10 @@ const extractInfo = async (messageData) => {
       user: messageData.author,
       force: true,
     });
+    if (nickname === "Delivery Cat" || username === "Delivery Cat") {
+      const firstLine = message.split("\n")[0];
+      nickname = firstLine.split(" de ")[1].trim();
+    }
     debug(chalk.cyanBright("###############################"));
     debug(chalk.cyanBright("   Alumno: ", nickname || username));
     debug(chalk.cyanBright("###############################"));
@@ -100,7 +104,7 @@ const lineIsProd = (line) =>
   line.toLowerCase().replaceAll(" ", "").startsWith("front-prod:") ||
   line.toLowerCase().replaceAll(" ", "").startsWith("back-prod:");
 
-const lineIsGroup = (line) => line.toLowerCase().startsWith("grupo:");
+const lineIsGroup = (line) => line.toLowerCase().includes("de grupo");
 
 module.exports = {
   extractWeekAndChallenge,

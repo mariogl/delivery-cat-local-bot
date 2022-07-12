@@ -58,8 +58,7 @@ client.on("ready", async () => {
   let nChallenge = challengeChannel.name.replace("challenge-", "");
   nChallenge = nChallenge === "weekend" ? "we" : nChallenge;
 
-  const nWeek = +challengeCategory.name.replace("Week ", "");
-
+  const nWeek = +challengeCategory.name.replace(/week /i, "");
   let challengeDB = await Challenge.findOne({
     week: nWeek,
     number: nChallenge,
